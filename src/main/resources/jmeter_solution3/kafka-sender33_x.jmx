@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui"  testclass="TestPlan" testname="Kafka 100-thread load" enabled="true">
+      <stringProp name="TestPlan.comments"></stringProp> <!-- !!!! поле для своих комментариев   -->
+      <boolProp name="TestPlan.functional_mode">false</boolProp>  <!-- означает, что это нагрузочный тест, а не функциональный -->
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp> <!-- выполнит все tearDown потоки и листенеры даже при преждевременной остановке теста. -->
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp> <!-- группы потоков будут выполняться параллельно -->
+      <!-- определяет пользовательские переменные для тестового плана -->
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments"/> <!-- !!!! коллекция своих аргументов -->
+      </elementProp>
+      <stringProp name="TestPlan.user_define_classpath"></stringProp> <!-- !!!! дополнительный classpath для тестового плана -->
+    </TestPlan>
+
+    <hashTree>
+      <!-- ① Producer threads -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Producers" enabled="true"> 
+        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JavaSampler guiclass="JavaTestSamplerGui" testclass="JavaSampler" testname="Kafka Producer Sampler" enabled="true">
+          <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="bootstrap" elementType="Argument">
+                <stringProp name="Argument.name">bootstrap</stringProp>
+                <stringProp name="Argument.value">localhost:9094</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="topic" elementType="Argument">
+                <stringProp name="Argument.name">topic</stringProp>
+                <stringProp name="Argument.value">test-topic</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="payloadB" elementType="Argument">
+                <stringProp name="Argument.name">payloadB</stringProp>
+                <stringProp name="Argument.value">100</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="classname">org.solutions.jmeter_solution3.producers.KafkaProducerSampler</stringProp>
+        </JavaSampler>
+        <hashTree/>
+      </hashTree>
+	  
+	
+
+      <!-- ② Consumer threads -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Consumers" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testname="Loop Controller" enabled="true">
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">2</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">2</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">1000</stringProp> 
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+
+      <hashTree>
+        <JavaSampler guiclass="JavaTestSamplerGui" testclass="JavaSampler"  testname="KafkaConsumer" enabled="true">
+			<stringProp name="classname">org.solutions.jmeter_solution3.consumers.KafkaConsumerSampler</stringProp>
+		  
+			<elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Sampler Parameters" enabled="true">
+			  <collectionProp name="Arguments.arguments">
+				<elementProp name="bootstrap" elementType="Argument">
+				  <stringProp name="Argument.name">bootstrap</stringProp>
+				  <stringProp name="Argument.value">localhost:9092</stringProp>
+				  <stringProp name="Argument.metadata">=</stringProp>
+				</elementProp>
+				<elementProp name="topic" elementType="Argument">
+				  <stringProp name="Argument.name">topic</stringProp>
+				  <stringProp name="Argument.value">load_test_topic</stringProp>
+				  <stringProp name="Argument.metadata">=</stringProp>
+				</elementProp>
+				<elementProp name="groupId" elementType="Argument">
+				  <stringProp name="Argument.name">groupId</stringProp>
+				  <stringProp name="Argument.value">jmeter_consumer_group_${__threadNum}</stringProp> <stringProp name="Argument.metadata">=</stringProp>
+				</elementProp>
+				<elementProp name="pollTimeoutMs" elementType="Argument">
+				  <stringProp name="Argument.name">pollTimeoutMs</stringProp>
+				  <stringProp name="Argument.value">500</stringProp>
+				  <stringProp name="Argument.metadata">=</stringProp>
+				</elementProp>
+				<elementProp name="sampleDurationMs" elementType="Argument">
+				  <stringProp name="Argument.name">sampleDurationMs</stringProp>
+				  <stringProp name="Argument.value">1000</stringProp>
+				  <stringProp name="Argument.metadata">=</stringProp>
+				</elementProp>
+			  </collectionProp>
+			</elementProp>          
+		  
+        </JavaSampler>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+	  
+  </hashTree>
+</jmeterTestPlan>
+
+
+

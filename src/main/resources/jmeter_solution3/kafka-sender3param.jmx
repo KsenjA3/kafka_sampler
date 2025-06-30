@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui"  testclass="TestPlan" testname="Kafka 100-thread load" enabled="true">
+      <stringProp name="TestPlan.comments">
+        Этот тестовый план предназначен для нагрузочного тестирования Kafka Producer и Consumer.
+        Параметры Thread Group и Sampler'ов будут динамически устанавливаться из Java-кокода.
+      </stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+      <stringProp name="TestPlan.user_define_classpath"></stringProp>
+    </TestPlan>
+
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Producers" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(THREADS)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(RAMP_UP_PERIOD)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+
+      <hashTree>
+        <JavaSampler testname="KafkaProducer" testclass="JavaSampler" guiclass="JavaTestSamplerGui" enabled="true">
+            <stringProp name="classname">org.solutions.jmeter_solution3.producers.KafkaProducerSampler</stringProp>
+
+            <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Sampler Parameters" enabled="true">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="BOOTSTRAP_SERVERS" elementType="Argument">
+                  <stringProp name="Argument.name">BOOTSTRAP_SERVERS</stringProp>
+                  <stringProp name="Argument.value">${__P(BOOTSTRAP_SERVERS)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="TOPIC_NAME" elementType="Argument">
+                  <stringProp name="Argument.name">TOPIC_NAME</stringProp>
+                  <stringProp name="Argument.value">${__P(TOPIC_NAME)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="PAYLOAD_BYTES" elementType="Argument">
+                  <stringProp name="Argument.name">PAYLOAD_BYTES</stringProp>
+                  <stringProp name="Argument.value">${__P(PAYLOAD_BYTES)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="ACKS" elementType="Argument">
+                  <stringProp name="Argument.name">ACKS</stringProp>
+                  <stringProp name="Argument.value">${__P(ACKS)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="messageKey" elementType="Argument">
+                  <stringProp name="Argument.name">MESSAGE_KEY</stringProp> <stringProp name="Argument.value">${__threadNum}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="SEND_TIMEOUT" elementType="Argument">
+                  <stringProp name="Argument.name">SEND_TIMEOUT</stringProp>
+                  <stringProp name="Argument.value">${__P(SEND_TIMEOUT)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="SAMPLER_NAME" elementType="Argument">
+                  <stringProp name="Argument.name">SAMPLER_NAME</stringProp>
+                  <stringProp name="Argument.value">KafkaProducer</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+        </JavaSampler>
+        <hashTree/>
+      </hashTree>
+
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Consumers" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testname="Loop Controller" enabled="true">
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads"> ${__P(THREADS)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(RAMP_UP_PERIOD)</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(DURATION_SECONDS)</stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+
+      <hashTree>
+        <JavaSampler guiclass="JavaTestSamplerGui" testclass="JavaSampler"  testname="KafkaConsumer" enabled="true">
+            <stringProp name="classname">org.solutions.jmeter_solution3.consumers.KafkaConsumerSampler</stringProp>
+
+            <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Sampler Parameters" enabled="true">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="BOOTSTRAP_SERVERS" elementType="Argument">
+                  <stringProp name="Argument.name">BOOTSTRAP_SERVERS</stringProp>
+                  <stringProp name="Argument.value">${__P(BOOTSTRAP_SERVERS)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="TOPIC_NAME" elementType="Argument">
+                  <stringProp name="Argument.name">TOPIC_NAME</stringProp>
+                  <stringProp name="Argument.value">${__P(TOPIC_NAME)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="GROUP_ID" elementType="Argument">
+                  <stringProp name="Argument.name">GROUP_ID</stringProp>
+                  <stringProp name="Argument.value">jmeter_consumer_group_${__threadNum}</stringProp> <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="POLL_TIMEOUT_MS" elementType="Argument">
+                  <stringProp name="Argument.name">POLL_TIMEOUT_MS</stringProp>
+                  <stringProp name="Argument.value">${__P(POLL_TIMEOUT_MS)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="SAMPLE_DURATION_MS" elementType="Argument">
+                  <stringProp name="Argument.name">SAMPLE_DURATION_MS</stringProp>
+                  <stringProp name="Argument.value">${__P(SAMPLE_DURATION_MS)}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+                <elementProp name="SAMPLER_NAME" elementType="Argument">
+                  <stringProp name="Argument.name">SAMPLER_NAME</stringProp>
+                  <stringProp name="Argument.value">KafkaConsumer</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+        </JavaSampler>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+
+  </hashTree>
+</jmeterTestPlan>

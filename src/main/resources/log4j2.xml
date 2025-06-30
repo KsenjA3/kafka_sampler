@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="info">
+
+    <Appenders>
+
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n" />
+        </Console>
+
+<!--        <Appender type="io.qameta.allure.log4j2.AllureAppender" name="AllureLogAppender">-->
+<!--            <Layout type="PatternLayout" pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>-->
+<!--            <target>TEST_CASE</target>-->
+<!--        </Appender>-->
+
+        <File name="FileLogger" fileName="logs/test-class.log">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </File>
+
+    </Appenders>
+
+    <Loggers>
+
+        <Root level="debug"> <AppenderRef ref="ConsoleAppender" />
+<!--            <AppenderRef ref="AllureLogAppender"/>-->
+            <AppenderRef ref="FileLogger"/>
+        </Root>
+
+        <Logger name="org.solutions.jmeter_solution3.producers" level="DEBUG" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="FileLogger"/>
+        </Logger>
+        <Logger name="org.solutions.jmeter_solution3.consumers" level="DEBUG" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+<!--            <AppenderRef ref="AllureLogAppender"/>-->
+            <AppenderRef ref="FileLogger"/>
+        </Logger>
+
+        <Logger name="org.apache.jmeter" level="INFO" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="FileLogger"/>
+        </Logger>
+        <Logger name="org.apache.jorphan" level="INFO" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="FileLogger"/>
+        </Logger>
+
+
+    </Loggers>
+
+</Configuration>

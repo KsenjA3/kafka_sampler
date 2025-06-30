@@ -5,153 +5,134 @@ import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.protocol.java.sampler.AbstractJavaSamplerClient;
 import org.apache.jmeter.protocol.java.sampler.JavaSamplerContext;
 import org.apache.jmeter.samplers.SampleResult;
-
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.jmeter.testelement.property.JMeterProperty; // Добавьте этот импорт
 
-import java.io.Serializable;
-import java.time.Duration;
+import java.util.Iterator;
 import java.util.Properties;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit; // Для использования TimeUnit в .get()
-
+import java.util.HashMap; // Добавьте этот импорт
+import java.util.Map;   // Добавьте этот импорт
 
 @Log4j2
-public class KafkaProducerSampler extends AbstractJavaSamplerClient  implements Serializable {
+public class KafkaProducerSampler extends AbstractJavaSamplerClient {
 
-    private static final long serialVersionUID = 1L; // Для корректной сериализации в JMeter
-    private transient KafkaProducer<String, String> producer;    // инициализирован один раз и переиспользован потоками, не будет сериализовано, что важно для JMeter.
+    private static final String BOOTSTRAP_SERVERS_PARAM = "BOOTSTRAP_SERVERS";
+    private static final String TOPIC_PARAM = "TOPIC_NAME";
+    private static final String PAYLOAD_BYTES_PARAM = "PAYLOAD_BYTES";
+    private static final String ACKS_PARAM = "ACKS";
+    private static final String MESSAGE_KEY_PARAM = "MESSAGE_KEY";
+    private static final String SEND_TIMEOUT_SECONDS_PARAM = "SEND_TIMEOUT";
+    private static final String SAMPLER_NAME_PARAM = "SAMPLER_NAME";
 
-    // Параметры для Sampler'а  для ключей
-    private static final String PARAM_BOOTSTRAP = "bootstrap";
-    private static final String PARAM_TOPIC = "topic";
-    private static final String PARAM_PAYLOAD = "payloadB";
-    private static final String PARAM_ASKS = "acks"; // Добавим ключ сообщения для гибкости
-    private static final String PARAM_MESSAGE_KEY = "messageKey"; // Добавим ключ сообщения для гибкости
-    private static final String PARAM_TIMEOUT_SECONDS = "send.timeout.seconds";
-
-
-    // Свойства Kafka Producer, которые будут кэшироваться после setupTest
-    private String topicName;
+    private KafkaProducer<String, String> producer;
+    private String topic;
     private int payloadBytes;
+    private String acks;
     private int sendTimeoutSeconds;
+    private String samplerLabel;
 
-    /**
-     * Определяет параметры по умолчанию, которые будут отображаться в GUI JMeter.
-     * Облегчает настройку для пользователей.
-     */
     @Override
     public Arguments getDefaultParameters() {
-        Arguments parameters = new Arguments();
-        parameters.addArgument(PARAM_BOOTSTRAP, "localhost:9093"); // Адрес вашего Kafka брокера
-        parameters.addArgument(PARAM_TOPIC, "load_demo");            // Название темы Kafka
-        parameters.addArgument(PARAM_PAYLOAD, "100");                 // Размер сообщения в байтах (повторение символа 'x')
-        parameters.addArgument(PARAM_MESSAGE_KEY, "${__threadNum}");      // Встроенная функция JMeter, возвращает порядковый номер текущего потока (виртуального пользователя), который выполняет данный Sampler.
-        parameters.addArgument(PARAM_ASKS, "1"); // Уровень подтверждений
-        parameters.addArgument(PARAM_TIMEOUT_SECONDS, "15");
-        return parameters;
+        Arguments defaultParameters = new Arguments();
+        defaultParameters.addArgument(BOOTSTRAP_SERVERS_PARAM, "localhost:9092");
+        defaultParameters.addArgument(TOPIC_PARAM, "jmeter_test_topic");
+        defaultParameters.addArgument(PAYLOAD_BYTES_PARAM, "100");
+        defaultParameters.addArgument(ACKS_PARAM, "1");
+        defaultParameters.addArgument(MESSAGE_KEY_PARAM, "${__threadNum}");
+        defaultParameters.addArgument(SEND_TIMEOUT_SECONDS_PARAM, "30");
+        defaultParameters.addArgument(SAMPLER_NAME_PARAM, "DefaultKafkaProducer");
+        return defaultParameters;
     }
-    /**
-     * Метод вызывается ОДИН РАЗ при инициализации Sampler'а для каждого экземпляра класса.
-     * Используется для инициализации ресурсов, которые будут использоваться всеми потоками.
-     *
-     * @param context Контекст сэмплера, предоставляющий доступ к параметрам.
-     */
+
     @Override
     public void setupTest(JavaSamplerContext context) {
         log.info("Вызов setupTest для KafkaProducerSampler. Инициализация KafkaProducer.");
 
-        // Получаем параметры из контекста
-        String bootstrapServers = context.getParameter(PARAM_BOOTSTRAP);
-        topicName = context.getParameter(PARAM_TOPIC);
-        payloadBytes = context.getIntParameter(PARAM_PAYLOAD, 50); // 50 - значение по умолчанию, если не указано
-        String asks = context.getParameter("acks", "1"); // Уровень подтверждений
-        sendTimeoutSeconds = context.getIntParameter(PARAM_TIMEOUT_SECONDS, 15);
+        // ИСПРАВЛЕННЫЙ КОД ДЛЯ ЛОГИРОВАНИЯ ПАРАМЕТРОВ
+        Map<String, String> paramsMap = new HashMap<>();
+        Iterator<String> paramNames = context.getParameterNamesIterator();
+        while (paramNames.hasNext()) {
+            String paramName = paramNames.next();
+            String paramValue = context.getParameter(paramName);
+            paramsMap.put(paramName, paramValue);
+        }
+        log.info("Полученные параметры: " + paramsMap);
+        // КОНЕЦ ИСПРАВЛЕННОГО КОДА
 
-
-        // Настройка свойств Kafka Producer
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.ACKS_CONFIG, asks);
-//        props.put("schema.registry.url", context.getParameter("schema.registry.url", "http://localhost:8081"));//сериализаторы Avro, Protobuf или JSON Schema
 
         try {
-            // Инициализация KafkaProducer ОДИН РАЗ
+            this.samplerLabel = context.getParameter(SAMPLER_NAME_PARAM);
+            String bootstrapServers = context.getParameter(BOOTSTRAP_SERVERS_PARAM);
+            this.topic = context.getParameter(TOPIC_PARAM);
+            this.acks = context.getParameter(ACKS_PARAM);
+
+            String resolvedPayloadBytes = context.getParameter(PAYLOAD_BYTES_PARAM);
+            try {
+                this.payloadBytes = Integer.parseInt(resolvedPayloadBytes);
+            } catch (NumberFormatException e) {
+                log.warn("Value for parameter '" + PAYLOAD_BYTES_PARAM + "' not an integer: '" + resolvedPayloadBytes + "'. Using default: '50'.", e);
+                this.payloadBytes = 50;
+            }
+
+            String resolvedSendTimeout = context.getParameter(SEND_TIMEOUT_SECONDS_PARAM);
+            try {
+                this.sendTimeoutSeconds = Integer.parseInt(resolvedSendTimeout);
+            } catch (NumberFormatException e) {
+                log.warn("Value for parameter '" + SEND_TIMEOUT_SECONDS_PARAM + "' not an integer: '" + resolvedSendTimeout + "'. Using default: '15'.", e);
+                this.sendTimeoutSeconds = 15;
+            }
+
+            props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+            props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+            props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+            props.put(ProducerConfig.ACKS_CONFIG, this.acks);
+            props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, this.sendTimeoutSeconds * 1000);
+
             producer = new KafkaProducer<>(props);
-            log.info("KafkaProducerSampler: KafkaProducer успешно инициализирован для брокеров: {}", bootstrapServers);
+            log.info(this.samplerLabel + ": KafkaProducer успешно инициализирован. Bootstrap: " + bootstrapServers + ", Topic: " + topic + ", Acks: " + acks);
+
         } catch (Exception e) {
-            log.error("KafkaProducerSampler: Ошибка инициализации KafkaProducer: {}", e.getMessage(), e);
-            //????? обработка ошибки в случае неудачной инициализации
+            log.error(this.samplerLabel + ": Ошибка инициализации KafkaProducer: " + e.getMessage(), e);
             throw new RuntimeException("Не удалось инициализировать KafkaProducer. Проверьте настройки и доступность брокеров.", e);
         }
     }
 
-    /**
-     * Основной метод, выполняющий запрос.
-     * Вызывается для каждой итерации сэмплера с каждым виртуальным пользователем.
-     *
-     * @param context Контекст сэмплера, предоставляющий доступ к параметрам и JMeter-функциям.
-     * @return SampleResult, содержащий результаты выполнения запроса.
-     */
     @Override
     public SampleResult runTest(JavaSamplerContext context) {
-
-        SampleResult res = new SampleResult(); //содержать все данные об одном выполненном запросе (сэмпле)
-        res.setSampleLabel("KafkaProducerRequest - Topic: " + topicName); // Для отчетов
-        res.sampleStart(); // Запуск таймера для измерения времени выполнения Sampler'а
-
-        String messageKey = context.getParameter(PARAM_MESSAGE_KEY); // Получаем порядковый номер виртуального пользователя
-
-        // Генерируем тело сообщения на каждой итерации
-        String messageValue = null;
-        StringBuilder sb = new StringBuilder(payloadBytes);
-        for (int i = 0; i < payloadBytes; i++) { sb.append('x');  }
-        messageValue = sb.toString();
+        SampleResult result = new SampleResult();
+        result.setSampleLabel(this.samplerLabel);
+        result.sampleStart();
 
         try {
-            ProducerRecord<String, String> record = new ProducerRecord<>(topicName, messageKey, messageValue); // Создаем ProducerRecord
-            Future<?> future = producer.send(record); // Отправляем сообщение асинхронно
+            String messageKey = context.getParameter(MESSAGE_KEY_PARAM);
+            String message = "Message with size " + payloadBytes + " bytes from thread " + messageKey;
 
-            // Ожидаем завершения отправки сообщения синхронно для точного измерения latency каждого сообщения с таймаутом, чтобы избежать зависаний.
-            future.get(15, TimeUnit.SECONDS); //java.util.concurrent.TimeoutException.
+            producer.send(new ProducerRecord<>(topic, messageKey, message)).get();
+            result.setSuccessful(true);
+            result.setResponseMessage("Message sent successfully");
+            result.setResponseData(message.getBytes());
+            result.setDataType(SampleResult.TEXT);
 
-            res.setSuccessful(true);
-            res.setResponseCodeOK();
-            res.setResponseMessage("Сообщение успешно отправлено в Kafka.");
-            res.setResponseData(("Key: " + messageKey + ", Value (length): " + messageValue.length()).getBytes()); // отображается на вкладке "Response data"
-            res.setDataType(SampleResult.TEXT); //помогает JMeter правильно форматировать и отображать данные в View Results Tree.
-            log.debug("KafkaProducerSampler: Сообщение отправлено: Topic={}, Key={}, Value_Length={}", topicName, messageKey, messageValue.length());
         } catch (Exception e) {
-            // Обработка ошибок при отправке сообщения
-            res.setSuccessful(false);
-            res.setResponseCode("500"); // Стандартный код ошибки для внутренних проблем Sampler'а
-            res.setResponseMessage("Ошибка при отправке сообщения в Kafka: " + e.getMessage());
-            res.setResponseData(e.getMessage().getBytes()); // Данные ответа - текст ошибки
-            log.error("KafkaProducerSampler: Ошибка в runTest(): {}", e.getMessage(), e);
+            log.error(this.samplerLabel + ": Ошибка при отправке сообщения Kafka: " + e.getMessage(), e);
+            result.setSuccessful(false);
+            result.setResponseMessage(e.toString());
+            result.setResponseData(e.getMessage().getBytes());
         } finally {
-            res.sampleEnd(); // Остановка таймера, даже если произошла ошибка
+            result.sampleEnd();
         }
-        return res;
+        return result;
     }
 
-    /**
-     *  Используется для очистки ресурсов.     *
-     * @param context Контекст сэмплера.
-     */
     @Override
     public void teardownTest(JavaSamplerContext context) {
-        log.info("Вызов teardownTest для KafkaProducerSampler. Закрытие KafkaProducer.");
+        log.info(this.samplerLabel + ": Вызов teardownTest для KafkaProducerSampler. Закрытие KafkaProducer.");
         if (producer != null) {
-            try {
-                producer.close(Duration.ofSeconds(5)); // Закрываем продюсер, даем 5 секунд на очистку
-                log.info("KafkaProducer успешно закрыт.");
-            } catch (Exception e) {
-                log.error("Ошибка при закрытии KafkaProducer: " + e.getMessage(), e);
-            }
+            producer.close();
         }
     }
 }
